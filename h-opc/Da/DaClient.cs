@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -60,14 +60,14 @@ namespace Hylasoft.Opc.Da
       OpcDa.ItemProperty result;
       try
       {
-        var propertyCollection = _server.GetProperties(new[] { item }, new[] { new OpcDa.PropertyID(1) }, false)[0];
+        var propertyCollection = _server.GetProperties(new[] { item }, new[] { new OpcDa.PropertyID(1) }, true)[0];
         result = propertyCollection[0];
       }
       catch (NullReferenceException)
       {
         throw new OpcException("Could not find node because server not connected.");
       }
-      return result.DataType;
+      return (System.Type)result.Value;
     }
 
     /// <summary>
