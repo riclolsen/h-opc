@@ -1,4 +1,4 @@
-﻿using Hylasoft.Opc.Common;
+using Hylasoft.Opc.Common;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Configuration;
@@ -430,10 +430,15 @@ namespace Hylasoft.Opc.Ua
     {
       // if the tag already exists in cache, return it
       if (_nodesCache.ContainsKey(tag))
-        return _nodesCache[tag];
+         return _nodesCache[tag];
 
+      UaNode found;
+      if (tag.Contains("ns="))
+         found = new UaNode(tag, tag);
+      else
       // try to find the tag otherwise
-      var found = FindNode(tag, RootNode);
+         found = FindNode(tag, RootNode);
+
       if (found != null)
       {
         AddNodeToCache(found);
@@ -507,6 +512,29 @@ namespace Hylasoft.Opc.Ua
       return uriLogin;
     }
 
+    private string GetApplicationUriFromCertificate(System.Security.Cryptography.X509Certificates.X509Certificate2 certificate)
+    {
+        // extract the alternate domains from the subject alternate name extension.
+        X509SubjectAltNameExtension alternateName = null;
+
+        foreach (System.Security.Cryptography.X509Certificates.X509Extension extension in certificate.Extensions)
+        {
+            if (extension.Oid.Value == X509SubjectAltNameExtension.SubjectAltNameOid || extension.Oid.Value == X509SubjectAltNameExtension.SubjectAltName2Oid)
+            {
+                alternateName = new X509SubjectAltNameExtension(extension, extension.Critical);
+                break;
+            }
+        }
+
+        // get the application uri.
+        if (alternateName != null && alternateName.Uris.Count > 0)
+        {
+            return alternateName.Uris[0];
+        }
+
+        return string.Empty;
+    }
+
     /// <summary>
     /// Crappy method to initialize the session. I don't know what many of these things do, sincerely.
     /// </summary>
@@ -566,7 +594,10 @@ namespace Hylasoft.Opc.Ua
 
       // Assign a application certificate (when specified)
       if (_options.ApplicationCertificate != null)
-        appInstance.ApplicationConfiguration.SecurityConfiguration.ApplicationCertificate = new CertificateIdentifier(_options.ApplicationCertificate);
+        {
+          appInstance.ApplicationConfiguration.SecurityConfiguration.ApplicationCertificate = new CertificateIdentifier(_options.ApplicationCertificate);
+          appInstance.ApplicationConfiguration.ApplicationUri = GetApplicationUriFromCertificate(_options.ApplicationCertificate);
+        }
 
       // Find the endpoint to be used
       var endpoints = ClientUtils.SelectEndpoint(url, _options.UseMessageSecurity);
@@ -596,24 +627,36 @@ namespace Hylasoft.Opc.Ua
     /// <returns></returns>
     private UaNode FindNode(string tag, UaNode node)
     {
+      // if the tag already exists in cache, return it
+      if (_nodesCache.ContainsKey(tag))
+        return _nodesCache[tag];
+
       var folders = tag.Split('.');
       var head = folders.FirstOrDefault();
+
       UaNode found;
-      try
-      {
-        var subNodes = ExploreFolder(node.Tag);
-        found = subNodes.Single(n => n.Name == head);
-      }
-      catch (Exception ex)
-      {
-        throw new OpcException(string.Format("The tag \"{0}\" doesn't exist on folder \"{1}\"", head, node.Tag), ex);
-      }
+      if (tag.Contains("ns="))
+        {
+            found = new UaNode(tag, tag);
+        }
+      else
+        {
+            try
+            {
+                var subNodes = ExploreFolder(node.Tag);
+                found = subNodes.Single(n => n.Name.Equals(tag) || n.Name == head);
+            }
+            catch (Exception ex)
+            {
+                throw new OpcException(string.Format("The tag \"{0}\" doesn't exist on folder \"{1}\"", head, node.Tag), ex);
+            }
+        }
 
       // remove an array element by converting it to a list
       var folderList = folders.ToList();
       folderList.RemoveAt(0); // remove the first node
       folders = folderList.ToArray();
-      return folders.Length == 0
+      return found.Name.Equals(tag)
         ? found // last node, return it
         : FindNode(string.Join(".", folders), found); // find sub nodes
     }
