@@ -186,7 +186,7 @@ namespace Hylasoft.Opc.Ua
       _session.Read(
           requestHeader: null,
           maxAge: 0,
-          timestampsToReturn: TimestampsToReturn.Neither,
+          timestampsToReturn: TimestampsToReturn.Both,
           nodesToRead: nodesToRead,
           results: out results,
           diagnosticInfos: out diag);
@@ -218,7 +218,7 @@ namespace Hylasoft.Opc.Ua
       _session.BeginRead(
           requestHeader: null,
           maxAge: 0,
-          timestampsToReturn: TimestampsToReturn.Neither,
+          timestampsToReturn: TimestampsToReturn.Both,
           nodesToRead: nodesToRead,
           callback: ar =>
           {
